@@ -1,10 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Infrastructure for tradelens-app React frontend
+Description: Infrastructure for vestolog-app React frontend
 
 Resources:
   # 1. Private S3 Bucket for React files
-  TradelensAppBucket:
+  VestoLogAppBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "${AWS::StackName}-web-assets"
@@ -16,18 +16,18 @@ Resources:
 
 
   # 2. CloudFront Origin Access Control (OAC)
-  TradelensOAC:
+  VestoLogOAC:
     Type: AWS::CloudFront::OriginAccessControl
     Properties:
       OriginAccessControlConfig:
-        Description: "OAC for tradelens-app"
+        Description: "OAC for vestolog-app"
         Name: !Sub "${AWS::StackName}-OAC"
         OriginAccessControlOriginType: s3
         SigningBehavior: always
         SigningProtocol: sigv4
 
   # 3. CloudFront Distribution
-  TradelensDistribution:
+  VestoLogDistribution:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
@@ -35,8 +35,8 @@ Resources:
         DefaultRootObject: index.html
         Origins:
           - Id: S3Origin
-            DomainName: !GetAtt TradelensAppBucket.RegionalDomainName
-            OriginAccessControlId: !GetAtt TradelensOAC.Id
+            DomainName: !GetAtt VestoLogAppBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt VestoLogOAC.Id
             S3OriginConfig:
               OriginAccessIdentity: "" # Must be empty when using OAC
         DefaultCacheBehavior:
@@ -56,22 +56,22 @@ Resources:
   BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
-      Bucket: !Ref TradelensAppBucket
+      Bucket: !Ref VestoLogAppBucket
       PolicyDocument:
         Statement:
           - Action: s3:GetObject
             Effect: Allow
-            Resource: !Sub "arn:aws:s3:::${TradelensAppBucket}/*"
+            Resource: !Sub "arn:aws:s3:::${VestoLogAppBucket}/*"
             Principal:
               Service: cloudfront.amazonaws.com
             Condition:
               ArnLike:
-                aws:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${TradelensDistribution}"
+                aws:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${VestoLogDistribution}"
 
 
 Outputs:
   WebURL:
-    Description: URL of the Tradelens App
-    Value: !GetAtt TradelensDistribution.DomainName
+    Description: URL of the VestoLog App
+    Value: !GetAtt VestoLogDistribution.DomainName
   BucketName:
-    Value: !Ref TradelensAppBucket
+    Value: !Ref VestoLogAppBucket
