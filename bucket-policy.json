@@ -1,0 +1,17 @@
+{
+  "Statement": [
+    {
+      "Action": "s3:GetObject",
+      "Effect": "Allow",
+      "Resource": "arn:aws:s3:::vestolog-app-stack-web-assets/*",
+      "Principal": {
+        "Service": "cloudfront.amazonaws.com"
+      },
+      "Condition": {
+        "ArnLike": {
+          "aws:SourceArn": "arn:aws:cloudfront::061414933730:distribution/E2JPVOIXXMJ5JT"
+        }
+      }
+    }
+  ]
+}

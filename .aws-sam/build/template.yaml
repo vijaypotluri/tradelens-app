@@ -1,0 +1,131 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Infrastructure for vestolog-app React frontend
+Resources:
+  VestologAppBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: ${AWS::StackName}-web-assets
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  VestologCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: vestolog.com
+      SubjectAlternativeNames:
+      - www.vestolog.com
+      ValidationMethod: DNS
+      DomainValidationOptions:
+      - DomainName: vestolog.com
+        HostedZoneId: Z04483955L7GNGRAF08
+      - DomainName: www.vestolog.com
+        HostedZoneId: Z04483955L7GNGRAF08
+  VestologOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Description: OAC for vestolog-app
+        Name:
+          Fn::Sub: ${AWS::StackName}-OAC
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+  VestologDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Aliases:
+        - vestolog.com
+        - www.vestolog.com
+        Origins:
+        - Id: S3Origin
+          DomainName:
+            Fn::GetAtt:
+            - VestologAppBucket
+            - RegionalDomainName
+          OriginAccessControlId:
+            Fn::GetAtt:
+            - VestologOAC
+            - Id
+          S3OriginConfig:
+            OriginAccessIdentity: ''
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        CustomErrorResponses:
+        - ErrorCode: 403
+          ResponseCode: 200
+          ResponsePagePath: /index.html
+        - ErrorCode: 404
+          ResponseCode: 200
+          ResponsePagePath: /index.html
+        ViewerCertificate:
+          AcmCertificateArn:
+            Ref: VestologCertificate
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: VestologAppBucket
+      PolicyDocument:
+        Statement:
+        - Action: s3:GetObject
+          Effect: Allow
+          Resource:
+            Fn::Sub: arn:aws:s3:::${VestologAppBucket}/*
+          Principal:
+            Service: cloudfront.amazonaws.com
+          Condition:
+            ArnLike:
+              aws:SourceArn:
+                Fn::Sub: arn:aws:cloudfront::${AWS::AccountId}:distribution/${VestologDistribution}
+  VestologDNSRecords:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: Z04483955L7GNGRAF08
+      Comment: Alias records for vestolog.com
+      RecordSets:
+      - Name: vestolog.com
+        Type: A
+        AliasTarget:
+          HostedZoneId: Z2FDTNDATAQYW2
+          DNSName:
+            Fn::GetAtt:
+            - VestologDistribution
+            - DomainName
+          EvaluateTargetHealth: false
+      - Name: www.vestolog.com
+        Type: A
+        AliasTarget:
+          HostedZoneId: Z2FDTNDATAQYW2
+          DNSName:
+            Fn::GetAtt:
+            - VestologDistribution
+            - DomainName
+          EvaluateTargetHealth: false
+Outputs:
+  WebURL:
+    Description: URL of the VestoLog App
+    Value:
+      Fn::GetAtt:
+      - VestologDistribution
+      - DomainName
+  BucketName:
+    Value:
+      Ref: VestologAppBucket
+  DomainName:
+    Description: Custom domain for the app
+    Value: vestolog.com
+  CertificateArn:
+    Description: ACM Certificate ARN
+    Value:
+      Ref: VestologCertificate
